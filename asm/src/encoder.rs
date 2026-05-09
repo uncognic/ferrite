@@ -323,14 +323,13 @@ fn encode_li(_line: usize, rd: u8, imm: i32) -> Result<Vec<u32>, AsmError> {
     ])
 }
 
-// Directiveectives
 fn directive_size(name: &str, args: &[Operand], line: usize) -> Result<u32, AsmError> {
     match name {
         "word" => Ok(4 * args.len() as u32),
         "half" => Ok(2 * args.len() as u32),
         "byte" => Ok(args.len() as u32),
         "string" => match args.first() {
-            Some(Operand::Name(s)) => {
+            Some(Operand::Str(s)) => {
                 let len = s.len() as u32 + 1;
                 Ok((len + 3) & !3)
             }
@@ -340,7 +339,7 @@ fn directive_size(name: &str, args: &[Operand], line: usize) -> Result<u32, AsmE
         "org" => Ok(0),
         _ => Err(AsmError::new(
             line,
-            format!("unknown Directiveective '.{}'", name),
+            format!("unknown directive '.{}'", name),
         )),
     }
 }
@@ -359,7 +358,7 @@ fn encode_directive(
                 .copied()
                 .map(|a| a as i32)
                 .ok_or_else(|| AsmError::new(line, format!("undefined label '{}'", s))),
-            _ => Err(AsmError::new(line, "expected immediate in Directiveective")),
+            _ => Err(AsmError::new(line, "expected immediate in directive")),
         }
     };
 
@@ -386,7 +385,7 @@ fn encode_directive(
             Ok(out)
         }
         "string" => match args.first() {
-            Some(Operand::Name(s)) => {
+            Some(Operand::Str(s)) => {
                 let mut out: Vec<u8> = s.bytes().collect();
                 out.push(0);
                 while out.len() % 4 != 0 {
@@ -396,10 +395,10 @@ fn encode_directive(
             }
             _ => Err(AsmError::new(line, ".string requires a string literal")),
         },
-        "org" | "align" => Ok(Vec::new()), // TODO: padding
+        "org" | "align" => Ok(Vec::new()),
         _ => Err(AsmError::new(
             line,
-            format!("unknown Directiveective '.{}'", name),
+            format!("unknown directive '.{}'", name),
         )),
     }
 }

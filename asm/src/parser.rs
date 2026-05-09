@@ -113,6 +113,10 @@ impl Parser {
                 self.advance();
                 Ok(Operand::Name(s))
             }
+            Token::Str(s) => {
+                self.advance();
+                Ok(Operand::Str(s))
+            }
             other => Err(AsmError::new(
                 line,
                 format!("expected operand, got {:?}", other),
@@ -123,7 +127,7 @@ impl Parser {
     fn is_operand_start(&self) -> bool {
         matches!(
             self.peek(),
-            Token::Reg(_) | Token::FReg(_) | Token::Int(_) | Token::Ident(_)
+            Token::Reg(_) | Token::FReg(_) | Token::Int(_) | Token::Ident(_) | Token::Str(_)
         )
     }
 

@@ -4,6 +4,7 @@ pub enum Operand {
     FReg(u8), // F0–F15
     Imm(i32), // imm
     Name(String), // resolved later
+    Str(String), // for .string directive
 }
 
 
