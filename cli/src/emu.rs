@@ -1,15 +1,19 @@
-use ferrite_emu::{cpu::Cpu, cpu::StepResult, device::Device, device::Uart, mem::Bus};
+use ferrite_emu::{
+    cpu::{Cpu, StepResult},
+    device::{Device, Uart},
+    mem::Bus,
+};
 use std::{env, fs, process};
 
 fn main() {
     let args: Vec<String> = env::args().collect();
     if args.len() < 2 {
-        eprintln!("Usage: {} <rom_file>", args[0]);
+        eprintln!("usage: ferrite <rom.bin>");
         process::exit(1);
     }
 
-    let rom = fs::read(&args[1]).unwrap_or_else(|err| {
-        eprintln!("Failed to read ROM file '{}': {}", args[1], err);
+    let rom = fs::read(&args[1]).unwrap_or_else(|e| {
+        eprintln!("error: could not read '{}': {}", args[1], e);
         process::exit(1);
     });
 
@@ -20,7 +24,7 @@ fn main() {
         match cpu.step(bus) {
             StepResult::Ok => {}
             StepResult::Halted => {
-                eprintln!("[ferrite] halted at pc={:#010x}", cpu.pc());
+                eprintln!("\n[ferrite] halted at pc={:#010x}", cpu.pc());
                 break;
             }
         }

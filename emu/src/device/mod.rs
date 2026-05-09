@@ -1,24 +1,19 @@
 use crate::isa::mmap;
+use crate::isa::cause::INT_UART_RX;
 
 // device trait
 pub trait Device: Send {
     fn base(&self) -> u32;
     fn size(&self) -> u32;
     fn contains(&self, addr: u32) -> bool {
-        let base = self.base();
-        let size = self.size();
-        fn contains(&self, addr: u32) -> bool {
-            addr >= self.base() && addr < self.base() + self.size()
-        }
+        addr >= self.base() && addr < self.base() + self.size()
     }
     fn read(&mut self, addr: u32) -> u32;
     fn write(&mut self, addr: u32, val: u32);
-    // called between every instruction
     fn tick(&mut self) -> Option<u32> {
         None
     }
 }
-
 // UART
 pub struct Uart {
     rx_buf: std::collections::VecDeque<u8>,
@@ -35,7 +30,7 @@ impl Uart {
 
     pub fn push_rx(&mut self, byte: u8) {
         self.rx_buf.push_back(byte);
-        self.pending_irq = Some(isa::cause::INT_UART_RX);
+        self.pending_irq = Some(INT_UART_RX);
     }
 }
 

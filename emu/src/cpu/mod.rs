@@ -361,12 +361,11 @@ impl Cpu {
     fn take_exception(&mut self, e: Exception, bus: &mut Bus) -> StepResult {
         if self.in_trap {
             eprintln!(
-                "[ferrite] double fault: cause={}, epc={:#010x} HALTING",
+                "[ferrite] double fault: cause={} epc={:#010x} — halting",
                 e.cause, e.epc
             );
             return StepResult::Halted;
         }
-
         self.in_trap = true;
         self.csr[csr::CAUSE as usize] = e.cause;
         self.csr[csr::EPC as usize] = e.epc;
@@ -374,14 +373,14 @@ impl Cpu {
 
         let vec_addr = self.csr[csr::IVT as usize].wrapping_add(e.cause.wrapping_mul(4));
         match bus.fetch32(vec_addr, vec_addr) {
-            Ok(Handler) => {
-                self.pc = handler;
+            Ok(addr) => {
+                self.pc = addr;
                 self.in_trap = false;
                 StepResult::Ok
             }
             Err(_) => {
                 eprintln!(
-                    "[ferrite] fault reading IVT at {:#010x} for cause={} HALTING",
+                    "[ferrite] fault reading IVT at {:#010x} for cause={} — halting",
                     vec_addr, e.cause
                 );
                 StepResult::Halted
@@ -400,6 +399,11 @@ impl Cpu {
     #[inline]
     fn wfpr(&mut self, r: usize, v: f32) {
         self.fpr[r] = v;
+    }
+
+    #[inline]
+    fn jump(&mut self, offset: i32) {
+        self.pc = self.fetch_pc.wrapping_add(offset as u32);
     }
 
     #[inline]

@@ -8,7 +8,7 @@ pub struct Bus {
 
 impl Bus {
     pub fn new(rom: Vec<u8>, devices: Vec<Box<dyn Device>>) -> Self {
-        let ram_size = (mmap::RAM_END - mmap::RAM_START + 1) as usize;
+        let ram_size = (mmap::RAM_END - mmap::RAM_BASE + 1) as usize;
         Self {
             rom,
             ram: vec![0; ram_size],
@@ -190,6 +190,5 @@ fn region(addr: u32) -> Region {
         mmap::ROM_BASE..=mmap::ROM_END => Region::Rom,
         mmap::RAM_BASE..=mmap::RAM_END => Region::Ram,
         mmap::MMIO_BASE..=mmap::MMIO_END => Region::Mmio,
-        _ => unreachable!(),
     }
 }

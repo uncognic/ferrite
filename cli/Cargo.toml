@@ -1,12 +1,16 @@
 [package]
-name = "ferrite-cli"
+name        = "ferrite-cli"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
 
 [[bin]]
 name = "ferrite"
-path = "src/main.rs"
+path = "src/emu.rs"
+
+[[bin]]
+name = "fasm"
+path = "src/asm.rs"
 
 [dependencies]
 ferrite-emu = { workspace = true }
