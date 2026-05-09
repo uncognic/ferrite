@@ -260,49 +260,49 @@ impl Cpu {
             // branches
             op::JEQ => {
                 let off = sign_extend(bits(instr, 17, 0), 18);
-                if a == b_u {
+                if self.gpr[rd] == self.gpr[rs1] {
                     self.jump(off);
                 }
             }
             op::JNE => {
                 let off = sign_extend(bits(instr, 17, 0), 18);
-                if a != b_u {
+                if self.gpr[rd] != self.gpr[rs1] {
                     self.jump(off);
                 }
             }
             op::JLT => {
                 let off = sign_extend(bits(instr, 17, 0), 18);
-                if a_i < b_i {
+                if (self.gpr[rd] as i32) < (self.gpr[rs1] as i32) {
                     self.jump(off);
                 }
             }
             op::JGT => {
                 let off = sign_extend(bits(instr, 17, 0), 18);
-                if a_i > b_i {
+                if (self.gpr[rd] as i32) > (self.gpr[rs1] as i32) {
                     self.jump(off);
                 }
             }
             op::JLE => {
                 let off = sign_extend(bits(instr, 17, 0), 18);
-                if a_i <= b_i {
+                if (self.gpr[rd] as i32) <= (self.gpr[rs1] as i32) {
                     self.jump(off);
                 }
             }
             op::JGE => {
                 let off = sign_extend(bits(instr, 17, 0), 18);
-                if a_i >= b_i {
+                if (self.gpr[rd] as i32) >= (self.gpr[rs1] as i32) {
                     self.jump(off);
                 }
             }
             op::JLTU => {
                 let off = sign_extend(bits(instr, 17, 0), 18);
-                if a < b_u {
+                if self.gpr[rd] < self.gpr[rs1] {
                     self.jump(off);
                 }
             }
             op::JGTU => {
                 let off = sign_extend(bits(instr, 17, 0), 18);
-                if a > b_u {
+                if self.gpr[rd] > self.gpr[rs1] {
                     self.jump(off);
                 }
             }
