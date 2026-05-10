@@ -59,8 +59,8 @@ impl Encoder {
 
     fn build_label_map(&self, entry: &Option<String>) -> Result<HashMap<String, u32>, AsmError> {
         let mut map = HashMap::new();
-        // reserve 4 bytes for the J instruction for .entry
         let mut addr = if entry.is_some() { 4u32 } else { 0u32 };
+
         for stmt in &self.stmts {
             match stmt {
                 Statement::Label(name) => {
@@ -68,15 +68,49 @@ impl Encoder {
                         return Err(AsmError::new(0, format!("duplicate label '{}'", name)));
                     }
                 }
+                Statement::Equ { .. } => {}
                 Statement::Instruction {
                     mnemonic, operands, ..
                 } => {
                     addr += instruction_size(mnemonic, operands);
                 }
-                Statement::Directive { name, args, line } => {
-                    addr += directive_size(name, args, *line)?;
-                }
-                Statement::Equ { .. } => {} // skip
+                Statement::Directive { name, args, line } => match name.as_str() {
+                    "entry" | "equ" => {}
+                    "org" => {
+                        let target = match args.first() {
+                            Some(Operand::Imm(n)) => *n as u32,
+                            _ => return Err(AsmError::new(*line, ".org requires an address")),
+                        };
+                        if target < addr {
+                            return Err(AsmError::new(
+                                *line,
+                                format!(
+                                    ".org address {:#010x} is behind current address {:#010x}",
+                                    target, addr
+                                ),
+                            ));
+                        }
+                        addr = target;
+                    }
+                    "align" => {
+                        let n = match args.first() {
+                            Some(Operand::Imm(n)) if *n > 0 => *n as u32,
+                            _ => {
+                                return Err(AsmError::new(
+                                    *line,
+                                    ".align requires a positive integer",
+                                ));
+                            }
+                        };
+                        let remainder = addr % n;
+                        if remainder != 0 {
+                            addr += n - remainder;
+                        }
+                    }
+                    _ => {
+                        addr += directive_size(name, args, *line)?;
+                    }
+                },
             }
         }
         Ok(map)
@@ -91,20 +125,18 @@ impl Encoder {
         let mut out = Vec::new();
         let mut addr = if entry.is_some() { 4u32 } else { 0u32 };
 
-        // if .entry is present, emit J to entry
         if let Some(name) = entry {
             let target = labels
                 .get(name)
                 .copied()
                 .ok_or_else(|| AsmError::new(0, format!("entry label '{}' not defined", name)))?;
-            // J is at address 0
             let offset = target as i32;
             out.extend_from_slice(&enc_j(op::J, 0, offset).to_le_bytes());
         }
 
         for stmt in &self.stmts {
             match stmt {
-                Statement::Label(_) => {}
+                Statement::Label(_) | Statement::Equ { .. } => {}
 
                 Statement::Instruction {
                     mnemonic,
@@ -120,18 +152,64 @@ impl Encoder {
                 }
 
                 Statement::Directive { name, args, line } => {
-                    if name == "equ" {
-                        continue;
-                    }
-                    if name == "entry" {
-                        continue;
-                    }
-                    let bytes = encode_directive(*line, name, args, labels)?;
-                    addr += bytes.len() as u32;
-                    out.extend_from_slice(&bytes);
-                }
+                    match name.as_str() {
+                        "entry" => {}
 
-                Statement::Equ { .. } => {} // skip
+                        "org" => {
+                            let target = match args.first() {
+                                Some(Operand::Imm(n)) => *n as u32,
+                                Some(Operand::Name(s)) => equs.get(s).copied().ok_or_else(|| {
+                                    AsmError::new(*line, format!("undefined name '{}'", s))
+                                })?
+                                    as u32,
+                                _ => return Err(AsmError::new(*line, ".org requires an address")),
+                            };
+                            if target < addr {
+                                return Err(AsmError::new(
+                                    *line,
+                                    format!(
+                                        ".org address {:#010x} is behind current address {:#010x}",
+                                        target, addr
+                                    ),
+                                ));
+                            }
+                            // pad with zeros
+                            let padding = (target - addr) as usize;
+                            out.extend(std::iter::repeat(0u8).take(padding));
+                            addr = target;
+                        }
+
+                        "align" => {
+                            let n = match args.first() {
+                                Some(Operand::Imm(n)) if *n > 0 => *n as u32,
+                                _ => {
+                                    return Err(AsmError::new(
+                                        *line,
+                                        ".align requires a positive integer",
+                                    ));
+                                }
+                            };
+                            if !n.is_power_of_two() {
+                                return Err(AsmError::new(
+                                    *line,
+                                    ".align argument must be a power of two",
+                                ));
+                            }
+                            let remainder = addr % n;
+                            if remainder != 0 {
+                                let padding = (n - remainder) as usize;
+                                out.extend(std::iter::repeat(0u8).take(padding));
+                                addr += n - remainder;
+                            }
+                        }
+
+                        _ => {
+                            let bytes = encode_directive(*line, name, args, labels)?;
+                            addr += bytes.len() as u32;
+                            out.extend_from_slice(&bytes);
+                        }
+                    }
+                }
             }
         }
         Ok(out)
@@ -412,10 +490,7 @@ fn directive_size(name: &str, args: &[Operand], line: usize) -> Result<u32, AsmE
             }
             _ => Err(AsmError::new(line, ".string requires a string literal")),
         },
-        "align" => Ok(0),
-        "org" => Ok(0),
-        "entry" => Ok(0),
-        "equ" => Ok(0),
+        "entry" | "org" | "align" | "equ" => Ok(0),
         _ => Err(AsmError::new(
             line,
             format!("unknown directive '.{}'", name),
