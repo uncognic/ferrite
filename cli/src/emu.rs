@@ -7,17 +7,14 @@ use std::{env, fs, process};
 
 fn main() {
     let args: Vec<String> = env::args().collect();
-    if args.len() < 2 {
-        eprintln!("usage: ferrite [--trace] <rom.bin>");
-        process::exit(1);
-    }
-
     let trace = args.contains(&"--trace".to_string());
+    let regs = args.contains(&"--regs".to_string());
+
     let path = args
         .iter()
         .find(|a| !a.starts_with("--") && *a != &args[0])
         .unwrap_or_else(|| {
-            eprintln!("usage: ferrite [--trace] <rom.bin>");
+            eprintln!("usage: ferrite [--trace] [--regs] <rom.bin>");
             process::exit(1);
         });
 
@@ -31,15 +28,19 @@ fn main() {
 
     loop {
         if trace {
+            use std::io::Write;
+            let _ = std::io::stdout().flush();
             print_trace(cpu);
         }
         match cpu.step(bus) {
             StepResult::Ok => {}
             StepResult::Halted => {
-                if trace {
-                    print_trace(cpu);
+                use std::io::Write;
+                let _ = std::io::stdout().flush();
+                if trace || regs {
+                    print_regs(cpu);
                 }
-                eprintln!("\n[ferrite] halted at pc={:#010x}", cpu.pc());
+                eprintln!("[ferrite] halted at pc={:#010x}", cpu.pc());
                 break;
             }
         }
@@ -54,4 +55,11 @@ fn print_trace(cpu: &Cpu) {
         }
     }
     eprintln!();
+}
+
+fn print_regs(cpu: &Cpu) {
+    eprintln!("--- registers ---");
+    for (i, &val) in cpu.gpr().iter().enumerate() {
+        eprintln!("  R{i:<2} = {:#010x}  ({})", val, val as i32);
+    }
 }
