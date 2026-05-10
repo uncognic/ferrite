@@ -36,8 +36,27 @@ impl Parser {
                         return Ok(statements);
                     }
                 } else if matches!(self.peek_ahead(1), Token::Directive(_)) {
-                    // implicit name: name .directive
                     let name = self.expect_ident()?;
+                    // peek at which directive it is
+                    if let Token::Directive(dir) = self.peek().clone() {
+                        if dir == "equ" {
+                            self.advance(); // consume .equ
+                            let line = self.current_line();
+                            let value = match self.parse_operand()? {
+                                Operand::Imm(n) => n,
+                                _ => {
+                                    return Err(AsmError::new(
+                                        line,
+                                        ".equ requires a numeric value",
+                                    ));
+                                }
+                            };
+                            statements.push(Statement::Equ { name, value });
+                            self.expect_eol()?;
+                            continue;
+                        }
+                    }
+                    // label
                     statements.push(Statement::Label(name));
                     break;
                 } else {

@@ -927,6 +927,7 @@ Directives are assembler commands that do not emit instructions directly.
 | `.org` | `address` | Set the current address. |
 | `.align` | `n` | Advance to the next `n`-byte boundary. |
 | `.entry` | `label` | Set the entry point for the program. |
+| `.equ` | `name .equ value` | Define a constant symbol. |
 ### Examples
  
 ```asm

@@ -20,5 +20,9 @@ pub enum Statement {
         line: usize,
         name: String,
         args: Vec<Operand>,
+    },
+    Equ {
+        name: String,
+        value: i32,
     }
 }

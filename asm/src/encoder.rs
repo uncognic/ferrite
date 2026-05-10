@@ -16,13 +16,27 @@ impl Encoder {
     }
 
     pub fn encode(self) -> Result<Vec<u8>, AsmError> {
+        // find entry point
         let entry = self.find_entry()?;
+        // handle .equs
+        let equs = self.find_equs()?;
         // build labels
         let labels = self.build_label_map(&entry)?;
         // emit bytes
-        self.emit(&entry, &labels)
+        self.emit(&entry, &labels, &equs)
     }
 
+    fn find_equs(&self) -> Result<HashMap<String, i32>, AsmError> {
+        let mut map = HashMap::new();
+        for stmt in &self.stmts {
+            if let Statement::Equ { name, value } = stmt {
+                if map.insert(name.clone(), *value).is_some() {
+                    return Err(AsmError::new(0, format!("duplicate .equ '{}'", name)));
+                }
+            }
+        }
+        Ok(map)
+    }
     fn find_entry(&self) -> Result<Option<String>, AsmError> {
         let mut found = None;
         for stmt in &self.stmts {
@@ -62,6 +76,7 @@ impl Encoder {
                 Statement::Directive { name, args, line } => {
                     addr += directive_size(name, args, *line)?;
                 }
+                Statement::Equ { .. } => {} // skip
             }
         }
         Ok(map)
@@ -71,6 +86,7 @@ impl Encoder {
         &self,
         entry: &Option<String>,
         labels: &HashMap<String, u32>,
+        equs: &HashMap<String, i32>,
     ) -> Result<Vec<u8>, AsmError> {
         let mut out = Vec::new();
         let mut addr = if entry.is_some() { 4u32 } else { 0u32 };
@@ -95,7 +111,8 @@ impl Encoder {
                     operands,
                     line,
                 } => {
-                    let words = self.encode_instruction(*line, addr, mnemonic, operands, labels)?;
+                    let words =
+                        self.encode_instruction(*line, addr, mnemonic, operands, labels, equs)?;
                     for w in words {
                         out.extend_from_slice(&w.to_le_bytes());
                         addr += 4;
@@ -103,10 +120,18 @@ impl Encoder {
                 }
 
                 Statement::Directive { name, args, line } => {
+                    if name == "equ" {
+                        continue;
+                    }
+                    if name == "entry" {
+                        continue;
+                    }
                     let bytes = encode_directive(*line, name, args, labels)?;
                     addr += bytes.len() as u32;
                     out.extend_from_slice(&bytes);
                 }
+
+                Statement::Equ { .. } => {} // skip
             }
         }
         Ok(out)
@@ -118,6 +143,7 @@ impl Encoder {
         mnemonic: &str,
         operands: &[Operand],
         labels: &HashMap<String, u32>,
+        equs: &HashMap<String, i32>,
     ) -> Result<Vec<u32>, AsmError> {
         let reg = |i: usize| {
             operands.get(i).and_then(|o| {
@@ -140,11 +166,17 @@ impl Encoder {
         let imm = |i: usize| -> Result<i32, AsmError> {
             match operands.get(i) {
                 Some(Operand::Imm(n)) => Ok(*n),
-                Some(Operand::Name(s)) => labels
-                    .get(s)
-                    .copied()
-                    .map(|a| a as i32)
-                    .ok_or_else(|| AsmError::new(line, format!("undefined label '{}'", s))),
+                Some(Operand::Name(s)) => {
+                    // check equs first, then labels
+                    if let Some(&v) = equs.get(s) {
+                        return Ok(v);
+                    }
+                    labels
+                        .get(s)
+                        .copied()
+                        .map(|a| a as i32)
+                        .ok_or_else(|| AsmError::new(line, format!("undefined name '{}'", s)))
+                }
                 _ => Err(AsmError::new(
                     line,
                     format!("{}: expected immediate at operand {}", mnemonic, i),
@@ -375,6 +407,7 @@ fn directive_size(name: &str, args: &[Operand], line: usize) -> Result<u32, AsmE
         "align" => Ok(0),
         "org" => Ok(0),
         "entry" => Ok(0),
+        "equ" => Ok(0),
         _ => Err(AsmError::new(
             line,
             format!("unknown directive '.{}'", name),
@@ -433,7 +466,7 @@ fn encode_directive(
             }
             _ => Err(AsmError::new(line, ".string requires a string literal")),
         },
-        "org" | "align" | "entry" => Ok(Vec::new()),
+        "org" | "align" | "entry" | "equ" => Ok(Vec::new()),
         _ => Err(AsmError::new(
             line,
             format!("unknown directive '.{}'", name),
