@@ -60,8 +60,9 @@ impl Device for Uart {
 
     fn write(&mut self, addr: u32, val: u32) {
         if addr == mmap::UART_TX {
-            print!("{}", (val as u8) as char);
-            let _ = std::io::Write::flush(&mut std::io::stdout());
+            use std::io::Write;
+            let _ = std::io::stdout().write_all(&[val as u8]);
+            let _ = std::io::stdout().flush();
         }
     }
 
