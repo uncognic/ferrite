@@ -16,15 +16,37 @@ impl Encoder {
     }
 
     pub fn encode(self) -> Result<Vec<u8>, AsmError> {
+        let entry = self.find_entry()?;
         // build labels
-        let labels = self.build_label_map()?;
+        let labels = self.build_label_map(&entry)?;
         // emit bytes
-        self.emit(&labels)
+        self.emit(&entry, &labels)
     }
 
-    fn build_label_map(&self) -> Result<HashMap<String, u32>, AsmError> {
+    fn find_entry(&self) -> Result<Option<String>, AsmError> {
+        let mut found = None;
+        for stmt in &self.stmts {
+            if let Statement::Directive { name, args, line } = stmt {
+                if name == "entry" {
+                    if found.is_some() {
+                        return Err(AsmError::new(*line, "duplicate .entry directive"));
+                    }
+                    match args.first() {
+                        Some(Operand::Name(s)) => {
+                            found = Some(s.clone());
+                        }
+                        _ => return Err(AsmError::new(*line, ".entry requires a label name")),
+                    }
+                }
+            }
+        }
+        Ok(found)
+    }
+
+    fn build_label_map(&self, entry: &Option<String>) -> Result<HashMap<String, u32>, AsmError> {
         let mut map = HashMap::new();
-        let mut addr = 0u32;
+        // reserve 4 bytes for the J instruction for .entry
+        let mut addr = if entry.is_some() { 4u32 } else { 0u32 };
         for stmt in &self.stmts {
             match stmt {
                 Statement::Label(name) => {
@@ -45,9 +67,24 @@ impl Encoder {
         Ok(map)
     }
 
-    fn emit(&self, labels: &HashMap<String, u32>) -> Result<Vec<u8>, AsmError> {
+    fn emit(
+        &self,
+        entry: &Option<String>,
+        labels: &HashMap<String, u32>,
+    ) -> Result<Vec<u8>, AsmError> {
         let mut out = Vec::new();
-        let mut addr = 0u32;
+        let mut addr = if entry.is_some() { 4u32 } else { 0u32 };
+
+        // if .entry is present, emit J to entry
+        if let Some(name) = entry {
+            let target = labels
+                .get(name)
+                .copied()
+                .ok_or_else(|| AsmError::new(0, format!("entry label '{}' not defined", name)))?;
+            // J is at address 0
+            let offset = target as i32;
+            out.extend_from_slice(&enc_j(op::J, 0, offset).to_le_bytes());
+        }
 
         for stmt in &self.stmts {
             match stmt {

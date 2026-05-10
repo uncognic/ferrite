@@ -930,8 +930,10 @@ Directives are assembler commands that do not emit instructions directly.
 ### Examples
  
 ```asm
-message:
-    .string "Hello, Ferrite!"
+message .string "Hello, Ferrite!" ; strings can also be declared with a label
+                                  ; like this:
+                                  ; message:
+                                  ;     .string "Hello, Ferrite!"
  
 table:
     .word 0, 1, 2, 3, 4

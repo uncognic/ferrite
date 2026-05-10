@@ -35,6 +35,11 @@ impl Parser {
                     if self.peek() == &Token::Eof {
                         return Ok(statements);
                     }
+                } else if matches!(self.peek_ahead(1), Token::Directive(_)) {
+                    // implicit name: name .directive
+                    let name = self.expect_ident()?;
+                    statements.push(Statement::Label(name));
+                    break;
                 } else {
                     break;
                 }
