@@ -1,5 +1,5 @@
-use crate::isa::mmap;
 use crate::isa::cause::INT_UART_RX;
+use crate::isa::mmap;
 
 // device trait
 pub trait Device: Send {
@@ -61,6 +61,7 @@ impl Device for Uart {
     fn write(&mut self, addr: u32, val: u32) {
         if addr == mmap::UART_TX {
             print!("{}", (val as u8) as char);
+            let _ = std::io::Write::flush(&mut std::io::stdout());
         }
     }
 
