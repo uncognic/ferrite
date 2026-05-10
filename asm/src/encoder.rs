@@ -4,7 +4,7 @@ use crate::{
     ast::{Operand, Statement},
     error::AsmError,
 };
-use ferrite_emu::isa::{csr, op};
+use ferrite_emu::isa::{csr, op, sign_extend};
 
 pub struct Encoder {
     stmts: Vec<Statement>,
@@ -383,9 +383,17 @@ fn enc_ri(
 }
 
 fn encode_li(_line: usize, rd: u8, imm: i32) -> Result<Vec<u32>, AsmError> {
-    let upper = ((imm as u32) >> 10) & 0x3F_FFFF;
-    let lower = (imm as u32) & 0x3FF;
-    let lower_signed = lower as i32;
+    let val = imm as u32;
+    let lower = val & 0x3FF; // low 10 bits
+    let mut upper = val >> 10; // high 22 bits
+
+    // if bit 9 of lower is set, ADD will sign-extend it to a negative number.
+    // compensate by incrementing upper so the result is still correct.
+    if lower & 0x200 != 0 {
+        upper = upper.wrapping_add(1);
+    }
+
+    let lower_signed = sign_extend(lower, 10);
     Ok(vec![
         enc_u(op::LUI, rd, upper),
         enc_i(op::ADD, rd, rd, lower_signed),
