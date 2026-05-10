@@ -32,15 +32,11 @@ impl Bus {
         Ok(self.raw_read8(addr))
     }
 
-    pub fn read16(&mut self, addr: u32, ring: Ring, epc: u32) -> Result<u16, Exception> {
-        if addr & 1 != 0 {
-            return Err(Exception::fault_mem(epc));
-        }
-        self.check_read(addr, ring, epc)?;
-        Ok(u16::from_le_bytes([
-            self.raw_read8(addr),
-            self.raw_read8(addr + 1),
-        ]))
+    // write
+    pub fn write8(&mut self, addr: u32, val: u8, ring: Ring, epc: u32) -> Result<(), Exception> {
+        self.check_write(addr, ring, epc)?;
+        self.raw_write8(addr, val);
+        Ok(())
     }
 
     pub fn read32(&mut self, addr: u32, ring: Ring, epc: u32) -> Result<u32, Exception> {
@@ -48,18 +44,65 @@ impl Bus {
             return Err(Exception::fault_mem(epc));
         }
         self.check_read(addr, ring, epc)?;
-        Ok(u32::from_le_bytes([
-            self.raw_read8(addr),
-            self.raw_read8(addr + 1),
-            self.raw_read8(addr + 2),
-            self.raw_read8(addr + 3),
-        ]))
+        match region(addr) {
+            Region::Mmio => Ok(self
+                .devices
+                .iter_mut()
+                .find(|d| d.contains(addr))
+                .map(|d| d.read(addr))
+                .unwrap_or(0)),
+            _ => Ok(u32::from_le_bytes([
+                self.raw_read8(addr),
+                self.raw_read8(addr + 1),
+                self.raw_read8(addr + 2),
+                self.raw_read8(addr + 3),
+            ])),
+        }
     }
 
-    // write
-    pub fn write8(&mut self, addr: u32, val: u8, ring: Ring, epc: u32) -> Result<(), Exception> {
+    pub fn read16(&mut self, addr: u32, ring: Ring, epc: u32) -> Result<u16, Exception> {
+        if addr & 1 != 0 {
+            return Err(Exception::fault_mem(epc));
+        }
+        self.check_read(addr, ring, epc)?;
+        match region(addr) {
+            Region::Mmio => Ok(self
+                .devices
+                .iter_mut()
+                .find(|d| d.contains(addr & !3))
+                .map(|d| {
+                    let word = d.read(addr & !3);
+                    let off = (addr & 2) as usize;
+                    let b = word.to_le_bytes();
+                    u16::from_le_bytes([b[off], b[off + 1]])
+                })
+                .unwrap_or(0)),
+            _ => Ok(u16::from_le_bytes([
+                self.raw_read8(addr),
+                self.raw_read8(addr + 1),
+            ])),
+        }
+    }
+
+    pub fn write32(&mut self, addr: u32, val: u32, ring: Ring, epc: u32) -> Result<(), Exception> {
+        if addr & 3 != 0 {
+            return Err(Exception::fault_mem(epc));
+        }
         self.check_write(addr, ring, epc)?;
-        self.raw_write8(addr, val);
+        match region(addr) {
+            Region::Mmio => {
+                if let Some(dev) = self.devices.iter_mut().find(|d| d.contains(addr)) {
+                    dev.write(addr, val);
+                }
+            }
+            _ => {
+                let b = val.to_le_bytes();
+                self.raw_write8(addr, b[0]);
+                self.raw_write8(addr + 1, b[1]);
+                self.raw_write8(addr + 2, b[2]);
+                self.raw_write8(addr + 3, b[3]);
+            }
+        }
         Ok(())
     }
 
@@ -68,22 +111,24 @@ impl Bus {
             return Err(Exception::fault_mem(epc));
         }
         self.check_write(addr, ring, epc)?;
-        let b = val.to_le_bytes();
-        self.raw_write8(addr, b[0]);
-        self.raw_write8(addr + 1, b[1]);
-        Ok(())
-    }
-
-    pub fn write32(&mut self, addr: u32, val: u32, ring: Ring, epc: u32) -> Result<(), Exception> {
-        if addr & 3 != 0 {
-            return Err(Exception::fault_mem(epc));
+        match region(addr) {
+            Region::Mmio => {
+                if let Some(dev) = self.devices.iter_mut().find(|d| d.contains(addr & !3)) {
+                    let aligned = addr & !3;
+                    let off = (addr & 2) as usize;
+                    let mut word = dev.read(aligned).to_le_bytes();
+                    let bytes = val.to_le_bytes();
+                    word[off] = bytes[0];
+                    word[off + 1] = bytes[1];
+                    dev.write(aligned, u32::from_le_bytes(word));
+                }
+            }
+            _ => {
+                let b = val.to_le_bytes();
+                self.raw_write8(addr, b[0]);
+                self.raw_write8(addr + 1, b[1]);
+            }
         }
-        self.check_write(addr, ring, epc)?;
-        let b = val.to_le_bytes();
-        self.raw_write8(addr, b[0]);
-        self.raw_write8(addr + 1, b[1]);
-        self.raw_write8(addr + 2, b[2]);
-        self.raw_write8(addr + 3, b[3]);
         Ok(())
     }
 
