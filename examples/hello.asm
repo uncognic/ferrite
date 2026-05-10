@@ -1,4 +1,8 @@
 ; print a string over UART using a loop
+.entry main
+message .string "Hello, Ferrite!"
+
+main:
     LI R1, 0x80000000   ; UART_TX
     LI R2, message      ; pointer into string data
 
@@ -11,5 +15,3 @@ loop:
 
 done:
     HALT
-
-message .string "Hello, Ferrite!"

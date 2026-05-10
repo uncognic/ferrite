@@ -374,6 +374,7 @@ fn directive_size(name: &str, args: &[Operand], line: usize) -> Result<u32, AsmE
         },
         "align" => Ok(0),
         "org" => Ok(0),
+        "entry" => Ok(0),
         _ => Err(AsmError::new(
             line,
             format!("unknown directive '.{}'", name),
@@ -432,7 +433,7 @@ fn encode_directive(
             }
             _ => Err(AsmError::new(line, ".string requires a string literal")),
         },
-        "org" | "align" => Ok(Vec::new()),
+        "org" | "align" | "entry" => Ok(Vec::new()),
         _ => Err(AsmError::new(
             line,
             format!("unknown directive '.{}'", name),
