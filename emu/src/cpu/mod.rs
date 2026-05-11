@@ -361,7 +361,7 @@ impl Cpu {
     fn take_exception(&mut self, e: Exception, bus: &mut Bus) -> StepResult {
         if self.in_trap {
             eprintln!(
-                "[ferrite] double fault: cause={} epc={:#010x} — halting",
+                "[ferrite] double fault: cause={} epc={:#010x} - halting",
                 e.cause, e.epc
             );
             return StepResult::Halted;
@@ -380,7 +380,7 @@ impl Cpu {
             }
             Err(_) => {
                 eprintln!(
-                    "[ferrite] fault reading IVT at {:#010x} for cause={} — halting",
+                    "[ferrite] fault reading IVT at {:#010x} for cause={} - halting",
                     vec_addr, e.cause
                 );
                 StepResult::Halted
