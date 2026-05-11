@@ -3,8 +3,13 @@ use std::{env, fs, path::Path, process};
 fn main() {
     let args: Vec<String> = env::args().collect();
     if args.len() < 2 {
-        eprintln!("usage: fasm <input.asm> [output.bin]");
+        eprintln!("usage: fasm [--nologo] <input.asm> [output.bin]");
         process::exit(1);
+    }
+
+    let nologo = args.contains(&"--nologo".to_string());
+    if !nologo {
+        eprintln!("--- ferrite assembler {} ---", env!("CARGO_PKG_VERSION"));
     }
 
     let input = &args[1];
