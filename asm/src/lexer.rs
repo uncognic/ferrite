@@ -64,8 +64,8 @@ impl Lexer {
                 }
 
                 '0'..='9' | '-' => {
-                    let (n, line) = self.read_int()?;
-                    out.push((Token::Int(n), line));
+                    let (tok, line) = self.read_number()?;
+                    out.push((tok, line));
                 }
 
                 'a'..='z' | 'A'..='Z' | '_' => {
@@ -127,10 +127,8 @@ impl Lexer {
         self.src[start..self.pos].iter().collect()
     }
 
-    fn read_int(&mut self) -> Result<(i64, usize), AsmError> {
+    fn read_number(&mut self) -> Result<(Token, usize), AsmError> {
         let line = self.line;
-        let _start = self.pos;
-
         let negative = self.src[self.pos] == '-';
         if negative {
             self.pos += 1;
@@ -139,7 +137,6 @@ impl Lexer {
             return Err(AsmError::new(line, "expected digit after '-'"));
         }
 
-        // check for hex
         if self.src[self.pos] == '0' && self.pos + 1 < self.src.len() {
             match self.src[self.pos + 1] {
                 'x' | 'X' => {
@@ -151,7 +148,7 @@ impl Lexer {
                     self.pos += s.len();
                     let n = i64::from_str_radix(&s, 16)
                         .map_err(|_| AsmError::new(line, format!("invalid hex literal '{}'", s)))?;
-                    return Ok((if negative { -n } else { n }, line));
+                    return Ok((Token::Int(if negative { -n } else { n }), line));
                 }
                 'b' | 'B' => {
                     self.pos += 2;
@@ -163,22 +160,58 @@ impl Lexer {
                     let n = i64::from_str_radix(&s, 2).map_err(|_| {
                         AsmError::new(line, format!("invalid binary literal '{}'", s))
                     })?;
-                    return Ok((if negative { -n } else { n }, line));
+                    return Ok((Token::Int(if negative { -n } else { n }), line));
                 }
                 _ => {}
             }
         }
-        let s: String = self.src[self.pos..]
+
+        // read integer part
+        let int_part: String = self.src[self.pos..]
             .iter()
             .take_while(|c| c.is_ascii_digit())
             .collect();
-        self.pos += s.len();
-        let n: i64 = s
-            .parse()
-            .map_err(|_| AsmError::new(line, format!("invalid integer '{}'", s)))?;
-        Ok((if negative { -n } else { n }, line))
-    }
+        self.pos += int_part.len();
 
+        // check for decimals
+        if self.pos < self.src.len() && self.src[self.pos] == '.' {
+            self.pos += 1; // consume .
+            let frac_part: String = self.src[self.pos..]
+                .iter()
+                .take_while(|c| c.is_ascii_digit())
+                .collect();
+            self.pos += frac_part.len();
+
+            // exponent
+            let mut exp_part = String::new();
+            if self.pos < self.src.len() && matches!(self.src[self.pos], 'e' | 'E') {
+                exp_part.push('e');
+                self.pos += 1;
+                if self.pos < self.src.len() && matches!(self.src[self.pos], '+' | '-') {
+                    exp_part.push(self.src[self.pos]);
+                    self.pos += 1;
+                }
+                let digits: String = self.src[self.pos..]
+                    .iter()
+                    .take_while(|c| c.is_ascii_digit())
+                    .collect();
+                self.pos += digits.len();
+                exp_part.push_str(&digits);
+            }
+
+            let s = format!("{}.{}{}", int_part, frac_part, exp_part);
+            let f: f64 = s
+                .parse()
+                .map_err(|_| AsmError::new(line, format!("invalid float literal '{}'", s)))?;
+            return Ok((Token::Float(if negative { -f } else { f }), line));
+        }
+
+        // int
+        let n: i64 = int_part
+            .parse()
+            .map_err(|_| AsmError::new(line, format!("invalid integer '{}'", int_part)))?;
+        Ok((Token::Int(if negative { -n } else { n }), line))
+    }
     fn read_string(&mut self) -> Result<(String, usize), AsmError> {
         let line = self.line;
         self.pos += 1; // skip opening quote
@@ -218,65 +251,65 @@ impl Lexer {
             }
         }
         Ok((s, line))
-    }   
+    }
 }
- fn resolve_register(name: &str) -> Option<Token> {
-        let lower = name.to_ascii_lowercase();
+fn resolve_register(name: &str) -> Option<Token> {
+    let lower = name.to_ascii_lowercase();
 
-        // numbered
-        if let Some(rest) = lower.strip_prefix('r') {
-            if let Ok(n) = rest.parse::<u8>() {
-                if n < 16 {
-                    return Some(Token::Reg(n));
-                }
+    // numbered
+    if let Some(rest) = lower.strip_prefix('r') {
+        if let Ok(n) = rest.parse::<u8>() {
+            if n < 16 {
+                return Some(Token::Reg(n));
             }
         }
-        if let Some(rest) = lower.strip_prefix('f') {
-            if let Ok(n) = rest.parse::<u8>() {
-                if n < 16 {
-                    return Some(Token::FReg(n));
-                }
+    }
+    if let Some(rest) = lower.strip_prefix('f') {
+        if let Ok(n) = rest.parse::<u8>() {
+            if n < 16 {
+                return Some(Token::FReg(n));
             }
         }
-
-        // aliases
-        let reg = match lower.as_str() {
-            "zero" => 0,
-            "ra" => 1,
-            "sp" => 2,
-            "fp" => 3,
-            "rv" => 4,
-            "a0" => 5,
-            "a1" => 6,
-            "a2" => 7,
-            "a3" => 8,
-            "a4" => 9,
-            "t0" => 10,
-            "t1" => 11,
-            "t2" => 12,
-            "t3" => 13,
-            "s0" => 14,
-            "s1" => 15,
-            _ => return try_freg_alias(&lower),
-        };
-        Some(Token::Reg(reg))
     }
 
-    fn try_freg_alias(lower: &str) -> Option<Token> {
-        let n = match lower {
-            "fa0" => 0,
-            "fa1" => 1,
-            "fa2" => 2,
-            "fa3" => 3,
-            "ft0" => 4,
-            "ft1" => 5,
-            "ft2" => 6,
-            "ft3" => 7,
-            "fs0" => 8,
-            "fs1" => 9,
-            "fs2" => 10,
-            "fs3" => 11,
-            _ => return None,
-        };
-        Some(Token::FReg(n))
-    }
+    // aliases
+    let reg = match lower.as_str() {
+        "zero" => 0,
+        "ra" => 1,
+        "sp" => 2,
+        "fp" => 3,
+        "rv" => 4,
+        "a0" => 5,
+        "a1" => 6,
+        "a2" => 7,
+        "a3" => 8,
+        "a4" => 9,
+        "t0" => 10,
+        "t1" => 11,
+        "t2" => 12,
+        "t3" => 13,
+        "s0" => 14,
+        "s1" => 15,
+        _ => return try_freg_alias(&lower),
+    };
+    Some(Token::Reg(reg))
+}
+
+fn try_freg_alias(lower: &str) -> Option<Token> {
+    let n = match lower {
+        "fa0" => 0,
+        "fa1" => 1,
+        "fa2" => 2,
+        "fa3" => 3,
+        "ft0" => 4,
+        "ft1" => 5,
+        "ft2" => 6,
+        "ft3" => 7,
+        "fs0" => 8,
+        "fs1" => 9,
+        "fs2" => 10,
+        "fs3" => 11,
+        _ => return None,
+    };
+    Some(Token::FReg(n))
+}

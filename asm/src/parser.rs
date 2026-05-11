@@ -133,6 +133,10 @@ impl Parser {
                 }
                 Ok(Operand::Imm(n as i32))
             }
+            Token::Float(f) => {
+                self.advance();
+                Ok(Operand::Float(f as f32))
+            }
             Token::Ident(s) => {
                 self.advance();
                 Ok(Operand::Name(s))
@@ -151,7 +155,7 @@ impl Parser {
     fn is_operand_start(&self) -> bool {
         matches!(
             self.peek(),
-            Token::Reg(_) | Token::FReg(_) | Token::Int(_) | Token::Ident(_) | Token::Str(_)
+            Token::Reg(_) | Token::FReg(_) | Token::Int(_) | Token::Ident(_) | Token::Str(_) | Token::Float(_)
         )
     }
 

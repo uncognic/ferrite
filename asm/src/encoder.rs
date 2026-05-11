@@ -520,7 +520,10 @@ fn encode_directive(
         "word" => {
             let mut out = Vec::new();
             for op in args {
-                out.extend_from_slice(&(resolve(op)? as u32).to_le_bytes());
+                match op {
+                    Operand::Float(f) => out.extend_from_slice(&f.to_bits().to_le_bytes()),
+                    _ => out.extend_from_slice(&(resolve(op)? as u32).to_le_bytes()),
+                }
             }
             Ok(out)
         }
