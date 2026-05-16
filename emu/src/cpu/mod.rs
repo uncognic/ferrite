@@ -27,8 +27,8 @@ pub enum StepResult {
 }
 
 pub struct Cpu {
-    gpr: [u32; 16],
-    fpr: [f32; 16],
+    gpr: [u32; 16], // general purpose registers
+    fpr: [f32; 16], // floating point registers
     pc: u32,
     csr: [u32; 8],
     fetch_pc: u32,
@@ -404,6 +404,8 @@ impl Cpu {
     }
 
     // helpers
+
+    // write register with zero check
     #[inline]
     fn wgpr(&mut self, r: usize, v: u32) {
         if r != 0 {
