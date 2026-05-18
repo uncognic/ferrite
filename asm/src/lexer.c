@@ -109,6 +109,7 @@ int lex(const char *src, token_vec *out, arena *a, asm_error *err) {
         if (*p == '\n') {
             token t = {TOK_NEWLINE, line, {0}};
             vec_push(out, t);
+            line++;
             p++;
             continue;
         }

@@ -149,6 +149,7 @@ int parse(token_vec *tokens, stmt_vec *out, arena *a, asm_error *err) {
         }
 
         // label or dir
+        int equ_handled = 0;
         while (peek(&p)->type == TOK_IDENT) {
             if (peek_ahead(&p, 1)->type == TOK_COLON) {
                 // label
@@ -183,6 +184,7 @@ int parse(token_vec *tokens, stmt_vec *out, arena *a, asm_error *err) {
                     if (!expect_eol(&p, err)) {
                         return 0;
                     }
+                    equ_handled = 1;
                 } else {
                     stmt s = {STMT_LABEL, name_tok->line, {0}};
                     s.label = name_tok->str;
@@ -192,6 +194,10 @@ int parse(token_vec *tokens, stmt_vec *out, arena *a, asm_error *err) {
             } else {
                 break;
             }
+        }
+
+        if (equ_handled) {
+            continue;
         }
 
         // skip blanks again

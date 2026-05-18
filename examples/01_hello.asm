@@ -17,4 +17,6 @@ loop:
     J loop              ; repeat
 
 done:
+    MOV R3, 10          ; load newline character
+    SW R3, R1, 0        ; write newline to UART_TX
     HALT
