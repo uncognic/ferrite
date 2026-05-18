@@ -108,7 +108,7 @@ int main(int argc, char **argv) {
     uint8_t *rom = load_file(fw_path ? fw_path : legacy, &rom_len);
 
     size_t img_len = 0;
-    uint8_t *img = NULL;
+    uint8_t *img = nullptr;
     uint32_t load_addr = 0;
     if (prog_path) {
         img = load_file(prog_path, &img_len);
