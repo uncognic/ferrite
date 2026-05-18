@@ -15,6 +15,7 @@
 
 #include "asm.h"
 #include "isa.h"
+#include "strcasecmp.h"
 #include <ctype.h>
 #include <stdio.h>
 #include <string.h>
@@ -25,26 +26,6 @@ static int is_ident_start(char c) {
 
 static int is_ident_cont(char c) {
     return isalnum((unsigned char) c) || c == '_' || c == '.';
-}
-
-// custom implementation for portability to windows
-static int strcasecmp(const char *a, const char *b) {
-    while (*a && *b) {
-        unsigned char ca = (unsigned char) *a;
-        unsigned char cb = (unsigned char) *b;
-
-        int la = tolower(ca);
-        int lb = tolower(cb);
-
-        if (la != lb) {
-            return la - lb;
-        }
-
-        a++;
-        b++;
-    }
-
-    return tolower((unsigned char) *a) - tolower((unsigned char) *b);
 }
 
 static char *resolve_register(const char *name, tok_type *out_type, int64_t *out_val) {
