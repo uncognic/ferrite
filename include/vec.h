@@ -46,7 +46,7 @@
 #define vec_free(v)                                                                                \
     do {                                                                                           \
         free((v)->data);                                                                           \
-        (v)->data = NULL;                                                                          \
+        (v)->data = nullptr;                                                                       \
         (v)->len = 0;                                                                              \
         (v)->cap = 0;                                                                              \
     } while (0)

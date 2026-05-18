@@ -25,7 +25,7 @@ typedef struct {
 } strbuf;
 
 static inline void strbuf_init(strbuf *sb) {
-    sb->data = NULL;
+    sb->data = nullptr;
     sb->len = 0;
     sb->cap = 0;
 }

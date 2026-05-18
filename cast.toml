@@ -2,7 +2,7 @@
 name = "ferrite"
 version = "0.1.0"
 std = "c23"
-compiler = "gcc"
+compiler = "clang"
 
 [[target]]
 name = "ferrite"
@@ -21,10 +21,10 @@ out = "build"
 links = []
 
 [profile.debug]
-flags = ["-g", "-fsanitize=address,undefined", "-O0", "-D_POSIX_C_SOURCE=200809L", "-Wall"]
+flags = ["-g", "-fsanitize=address,undefined", "-O0", "-D_POSIX_C_SOURCE=200809L", "-Wall", "-fcolor-diagnostics"]
 
 [profile.release]
-flags = ["-O3", "-DNDEBUG", "-march=native", "-Wall", "-D_POSIX_C_SOURCE=200809L"]
+flags = ["-O3", "-DNDEBUG", "-march=native", "-Wall", "-D_POSIX_C_SOURCE=200809L", "-fcolor-diagnostics"]
 
 [install]
 prefix = "/usr/local"

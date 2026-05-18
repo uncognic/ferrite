@@ -34,7 +34,7 @@ typedef struct {
 } arena;
 
 static inline void arena_init(arena *a) {
-    a->head = NULL;
+    a->head = nullptr;
 }
 
 static inline void *arena_alloc(arena *a, size_t size) {
@@ -69,7 +69,7 @@ static inline void arena_free(arena *a) {
         free(blk);
         blk = next;
     }
-    a->head = NULL;
+    a->head = nullptr;
 }
 
 // allocate and zero a struct from an arena
